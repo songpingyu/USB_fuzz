@@ -1539,6 +1539,17 @@ class HexProtocolMonitor:
         print("    - Known protocol structures (STX/ETX, SOH, Command codes)")
         print("    - Variable payload lengths per pattern")
 
+        # Phase 3 pattern catalog (protocol-specific framing/prefixes).
+        # Byte layout convention used below:
+        #   [PREFIX...][PAYLOAD (0..max_payload_len bytes)][SUFFIX...]
+        # Field assumptions:
+        #   - PREFIX: sync/header/command bytes (e.g., STX/SOH, CMD80/CMD82, AA55 markers)
+        #   - PAYLOAD: optional params/data (mutated/random/structured in _generate_structured_payload)
+        #   - SUFFIX: end delimiter or framing tail (e.g., ETX, 0x7E, SLIP 0xC0)
+        # Report/JSON mapping:
+        #   - send_hex_command(..., test_phase="phase3_protocol") tags commands.json entries
+        #   - successful results store pattern_name + payload_length in phase3_results
+        #     (used by analysis_report.txt grouping via test_phase)
         # Define standard medical device patterns
         medical_patterns = [
             # (prefix_bytes, pattern_name, suffix_bytes, max_payload_len)
@@ -1619,7 +1630,7 @@ class HexProtocolMonitor:
                         else:
                             payload = os.urandom(data_len)
 
-                    # Construct full command
+                    # Construct full command (layout: PREFIX + PAYLOAD + SUFFIX)
                     full_cmd_bytes = bytes(prefix) + payload + bytes(suffix)
                     hex_cmd = " ".join(f"{b:02X}" for b in full_cmd_bytes)
 
@@ -1627,6 +1638,7 @@ class HexProtocolMonitor:
                         hex_cmd,
                         f"{pattern_name}({data_len}B)",
                         verbose=False,
+                        # test_phase label is used by analysis_report.txt and commands.json
                         test_phase="phase3_protocol",
                     )
 
